@@ -1,16 +1,21 @@
-// lib
+// e-Paper lib
 // https://github.com/waveshare/e-Paper
 
 #include <SPI.h>
 #include "epd2in9_V2.h"
-//#include "imagedata.h"
 #include "epdpaint.h"
-//#include <stdio.h>
+
+//Библиотека microDS18B20
+//https://github.com/GyverLibs/microDS18B20/releases/tag/3.7
+#include "microDS18B20.h"
+MicroDS18B20<A0> ds;  //датчик DS18B20 подключен к пину (резистор на 4.7к обязателен)
+
 Epd epd;
 unsigned char image[1024];
 Paint paint(image, 0, 0);
 unsigned long time_start_ms;
 unsigned long time_now_s;
+
 #define COLORED 0
 #define UNCOLORED 1
 
@@ -26,7 +31,7 @@ void setup()
 
 	Serial.println(epd.Init());
 
-	// epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
+	//epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
 	// epd.DisplayFrame();
 	// epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
 	// epd.DisplayFrame();
@@ -47,6 +52,16 @@ void setup()
 bool firstLoop = true;
 void loop()
 {
+	/*static uint32_t timer = millis();
+	if(millis() - timer >= 5000){	//каждую секунду
+		timer = millis();	//обновляем таймер
+		if(ds.readTemp()){
+			//Serial.println(ds.getTemp());
+			Temperature(ds.getTemp());
+		}
+		ds.requestTemp();
+	}
+*/
 	if (firstLoop)
 	{
 		epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
@@ -59,15 +74,17 @@ void loop()
 		HStart(NumericConverter(0));
 		HEnd(NumericConverter(9));
 		DotSplitter();
-		MStart(NumericConverter(5));
+		MStart(NumericConverter(1));
 		MEnd(NumericConverter(8));
 
 		//YYYY-month-day
 		DateYear();
 		//dayOf
 		DayOf();
-		//t
-		Temperature();
+		
+		if(ds.readTemp()){
+			Temperature(ds.getTemp());
+		}
 
 		epd.DisplayFrame(); //экран
 
@@ -173,11 +190,12 @@ void DayOf(){
 		}
 
 ///Температура
-void Temperature(){
+void Temperature(int currentValue){
 			paint.SetWidth(16);
 			paint.SetHeight(50); //ширина прямоугольника
-
+			char stringTemperature[20];
+			sprintf(stringTemperature, "t:%d*C", currentValue);
 			paint.Clear(UNCOLORED);
-			paint.DrawStringAt(0, 0, "t:-10*C", &Font12, COLORED);
+			paint.DrawStringAt(0, 0, stringTemperature, &Font12, COLORED);
 			epd.SetFrameMemory(paint.GetImage(), 100, 230, paint.GetWidth(), paint.GetHeight());
 		}
