@@ -10,6 +10,14 @@
 #include "microDS18B20.h"
 MicroDS18B20<A0> ds;  //датчик DS18B20 подключен к пину (резистор на 4.7к обязателен)
 
+//Библиотека для часов
+//https://github.com/msparks/arduino-ds1302
+#include <stdio.h>
+#include "DS1302.h"
+
+// Create a DS1302 object:
+DS1302 rtc(/*Chip Enable (RST):*/2, /*Input/Output (DAT):*/3, /*Serial Clock (CLK):*/4);
+
 Epd epd;
 unsigned char image[1024];
 Paint paint(image, 0, 0);
@@ -31,6 +39,10 @@ void setup()
 
 	Serial.println(epd.Init());
 
+	rtc.writeProtect(false);
+	rtc.halt(false);
+	Time t(2022, 3, 31, 18, 22, 50, Time::kSaturday);
+	rtc.time(t);
 	//epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
 	// epd.DisplayFrame();
 	// epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
@@ -70,17 +82,19 @@ void loop()
 		epd.DisplayFrame();
 
 		paint.SetRotate(ROTATE_90);
-		
-		HStart(NumericConverter(0));
-		HEnd(NumericConverter(9));
+		Time t = rtc.time();
+
+		HStart(NumericConverter(t.hr/10));
+		HEnd(NumericConverter(t.hr%10));
 		DotSplitter();
-		MStart(NumericConverter(1));
-		MEnd(NumericConverter(8));
+		MStart(NumericConverter(t.min/10));
+		MEnd(NumericConverter(t.min%10));
 
 		//YYYY-month-day
-		DateYear();
+		DateYear(t);
+
 		//dayOf
-		DayOf();
+		DayOf(dayAsString(t.day));
 		
 		if(ds.readTemp()){
 			Temperature(ds.getTemp());
@@ -170,22 +184,29 @@ void DotSplitter()
 }
 
 ///Год, месяц, число
-void DateYear(){
+void DateYear(Time t){
 			paint.SetWidth(16);
 			paint.SetHeight(80); //ширина прямоугольника
+			
+			const String month = monthAsString(t.mon);
+			char buf[12];
+			snprintf(buf, sizeof(buf), "%04d %s %02d", t.yr, month.c_str(), t.date);
 
 			paint.Clear(UNCOLORED);
-			paint.DrawStringAt(0, 0, "2022 jan 27", &Font12, COLORED);
+			paint.DrawStringAt(0, 0, buf, &Font12, COLORED);
 			epd.SetFrameMemory(paint.GetImage(), 100, 5, paint.GetWidth(), paint.GetHeight());
 		}
 
 ///День недели
-void DayOf(){
+void DayOf(String day){
 			paint.SetWidth(16);
 			paint.SetHeight(20); //ширина прямоугольника
 
+			char buf[5];
+			snprintf(buf, sizeof(buf), "%s", day.c_str());
+
 			paint.Clear(UNCOLORED);
-			paint.DrawStringAt(0, 0, "BT", &Font12, COLORED);
+			paint.DrawStringAt(0, 0, buf, &Font12, COLORED);
 			epd.SetFrameMemory(paint.GetImage(), 100, 100, paint.GetWidth(), paint.GetHeight());
 		}
 
@@ -199,3 +220,35 @@ void Temperature(int currentValue){
 			paint.DrawStringAt(0, 0, stringTemperature, &Font12, COLORED);
 			epd.SetFrameMemory(paint.GetImage(), 100, 230, paint.GetWidth(), paint.GetHeight());
 		}
+
+///День недели
+String dayAsString(const Time::Day day) {
+  switch (day) {
+    case Time::kSunday: return "BC";
+    case Time::kMonday: return "MH";//ПН
+    case Time::kTuesday: return "BT";
+    case Time::kWednesday: return "CP";
+    case Time::kThursday: return "4T";//ЧТ
+    case Time::kFriday: return "MT";//ПТ
+    case Time::kSaturday: return "Cb";//СБ
+  }
+  return "(unknown day)";
+}
+
+String monthAsString(uint8_t month) {
+  switch (month) {
+    case 1: return "jan";
+    case 2: return "feb";
+    case 3: return "mar";
+    case 4: return "apr";
+    case 5: return "may";
+    case 6: return "jun";
+    case 7: return "jul";
+	case 8: return "aug";
+	case 9: return "sep";
+	case 10: return "oct";
+	case 11: return "nov";
+	case 12: return "dec";
+  }
+  return "(unknown month)";
+}
