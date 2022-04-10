@@ -29,7 +29,6 @@ unsigned long time_now_s;
 
 void setup()
 {
-	// put your setup code here, to run once:
 	Serial.begin(9600);
 	if (epd.Init() != 0)
 	{
@@ -41,41 +40,19 @@ void setup()
 
 	rtc.writeProtect(false);
 	rtc.halt(false);
-	Time t(2022, 3, 31, 18, 22, 50, Time::kSaturday);
+	Time t(2022, 3, 13, 20, 36, 50, Time::kSunday);
 	rtc.time(t);
-	//epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
-	// epd.DisplayFrame();
-	// epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
-	// epd.DisplayFrame();
-
-	// paint.SetRotate(ROTATE_0);
-	// paint.SetWidth(200);
-	// paint.SetHeight(24);
-
-	// paint.Clear(UNCOLORED);
-	// paint.DrawStringAt(10, 4, "EEEEEEEEEE", &Font24, COLORED);
-	// epd.SetFrameMemory(paint.GetImage(), 0, 10, paint.GetWidth(), paint.GetHeight());
-
-	// epd.DisplayFrame();
-	// delay(3000);
-	//  epd.Sleep();
+	//Мониторим напряжение АКБ:
+	pinMode(A1, INPUT);
 }
 
 bool firstLoop = true;
 void loop()
 {
-	/*static uint32_t timer = millis();
-	if(millis() - timer >= 5000){	//каждую секунду
+	static uint32_t timer = millis();
+	if(millis() - timer >= 60000){	//каждую минуту
 		timer = millis();	//обновляем таймер
-		if(ds.readTemp()){
-			//Serial.println(ds.getTemp());
-			Temperature(ds.getTemp());
-		}
-		ds.requestTemp();
-	}
-*/
-	if (firstLoop)
-	{
+
 		epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
 		epd.DisplayFrame();
 		epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
@@ -88,25 +65,30 @@ void loop()
 		HEnd(NumericConverter(t.hr%10));
 		DotSplitter();
 		MStart(NumericConverter(t.min/10));
-		MEnd(NumericConverter(t.min%10));
+		int minNumericEnd = t.min%10;
+		MEnd(NumericConverter(minNumericEnd));
 
 		//YYYY-month-day
 		DateYear(t);
 
 		//dayOf
 		DayOf(dayAsString(t.day));
-		
-		if(ds.readTemp()){
-			Temperature(ds.getTemp());
+
+		if((minNumericEnd%2) == 0/*ds.readTemp()*/){
+			Temperature(ds.getTemp(), true);
 		}
+		else
+		{
+			float batteryVoltage = ((analogRead(A1) * 1.1) / 1023)*100;
+			Serial.println(batteryVoltage);
+			//int batteryVoltage = analogRead(A1);
+			Temperature(batteryVoltage, false);
+		}
+		ds.requestTemp();
 
 		epd.DisplayFrame(); //экран
-
 		firstLoop = false;
 	}
-
-	delay(3000);
-	Serial.println("e-Paper loop");
 }
 
 ///Конвертирует цифру в символ. Это костыль, из-за несоответствия в font72.cpp
@@ -210,12 +192,17 @@ void DayOf(String day){
 			epd.SetFrameMemory(paint.GetImage(), 100, 100, paint.GetWidth(), paint.GetHeight());
 		}
 
-///Температура
-void Temperature(int currentValue){
+///Температура или заряд акб
+void Temperature(int currentValue, bool isTemperatureMode){
 			paint.SetWidth(16);
 			paint.SetHeight(50); //ширина прямоугольника
 			char stringTemperature[20];
-			sprintf(stringTemperature, "t:%d*C", currentValue);
+			if(isTemperatureMode){
+				sprintf(stringTemperature, "t:%d*C", currentValue);
+			}
+			else{
+				sprintf(stringTemperature, "bt:%d", currentValue);
+			}
 			paint.Clear(UNCOLORED);
 			paint.DrawStringAt(0, 0, stringTemperature, &Font12, COLORED);
 			epd.SetFrameMemory(paint.GetImage(), 100, 230, paint.GetWidth(), paint.GetHeight());
@@ -225,12 +212,12 @@ void Temperature(int currentValue){
 String dayAsString(const Time::Day day) {
   switch (day) {
     case Time::kSunday: return "BC";
-    case Time::kMonday: return "MH";//ПН
+    case Time::kMonday: return "5H";//ПН
     case Time::kTuesday: return "BT";
     case Time::kWednesday: return "CP";
     case Time::kThursday: return "4T";//ЧТ
-    case Time::kFriday: return "MT";//ПТ
-    case Time::kSaturday: return "Cb";//СБ
+    case Time::kFriday: return "5T";//ПТ
+    case Time::kSaturday: return "C6";//СБ
   }
   return "(unknown day)";
 }
