@@ -40,10 +40,11 @@ void setup()
 	}
 
 	//достать флаг из памяти
-	  bool dataReadFromMemory = false;
-	  EEPROM.get(true, dataReadFromMemory);
-	//если флаг не установлен
-	if(dataReadFromMemory == false)
+	bool dataReadFromMemory = false;
+	EEPROM.get(true, dataReadFromMemory);
+	pinMode(6, INPUT_PULLUP); //на 6 пин кнопку, влиять на сброс
+	//если флаг не установлен ИЛИ D6 замкнут на землю:
+	if(dataReadFromMemory == false || !digitalRead(6))
 	{
 		//инициировать часы
 		rtc.writeProtect(false);
@@ -83,7 +84,7 @@ void loop()
 		//dayOf
 		DayOf(dayAsString(t.day));
 
-		if((minNumericEnd%2) == 0/*ds.readTemp()*/){
+		if(ds.readTemp()){
 			Temperature(ds.getTemp());
 		}
 		
