@@ -1,3 +1,6 @@
+//Независимая от reset память
+#include <EEPROM.h>
+
 // e-Paper lib
 // https://github.com/waveshare/e-Paper
 
@@ -36,17 +39,23 @@ void setup()
 		return;
 	}
 
-	Serial.println(epd.Init());
-
-	rtc.writeProtect(false);
-	rtc.halt(false);
-	Time t(2022, 3, 13, 20, 36, 50, Time::kSunday);
-	rtc.time(t);
-	//Мониторим напряжение АКБ:
-	pinMode(A1, INPUT);
+	//достать флаг из памяти
+	  bool dataReadFromMemory = false;
+	  EEPROM.get(true, dataReadFromMemory);
+	//если флаг не установлен
+	if(dataReadFromMemory == false)
+	{
+		//инициировать часы
+		rtc.writeProtect(false);
+		rtc.halt(false);
+		Time t(2022, 3, 13, 20, 36, 50, Time::kSunday);
+		rtc.time(t);
+		//запомнить флаг инициации в память
+		bool dataF = true;
+		EEPROM.put(true, dataF);
+	}
 }
 
-bool firstLoop = true;
 void loop()
 {
 	static uint32_t timer = millis();
@@ -75,19 +84,12 @@ void loop()
 		DayOf(dayAsString(t.day));
 
 		if((minNumericEnd%2) == 0/*ds.readTemp()*/){
-			Temperature(ds.getTemp(), true);
+			Temperature(ds.getTemp());
 		}
-		else
-		{
-			float batteryVoltage = ((analogRead(A1) * 1.1) / 1023)*100;
-			Serial.println(batteryVoltage);
-			//int batteryVoltage = analogRead(A1);
-			Temperature(batteryVoltage, false);
-		}
+		
 		ds.requestTemp();
 
 		epd.DisplayFrame(); //экран
-		firstLoop = false;
 	}
 }
 
@@ -192,17 +194,12 @@ void DayOf(String day){
 			epd.SetFrameMemory(paint.GetImage(), 100, 100, paint.GetWidth(), paint.GetHeight());
 		}
 
-///Температура или заряд акб
-void Temperature(int currentValue, bool isTemperatureMode){
+///Температура
+void Temperature(int currentValue){
 			paint.SetWidth(16);
 			paint.SetHeight(50); //ширина прямоугольника
 			char stringTemperature[20];
-			if(isTemperatureMode){
-				sprintf(stringTemperature, "t:%d*C", currentValue);
-			}
-			else{
-				sprintf(stringTemperature, "bt:%d", currentValue);
-			}
+			sprintf(stringTemperature, "t:%d*C", currentValue);
 			paint.Clear(UNCOLORED);
 			paint.DrawStringAt(0, 0, stringTemperature, &Font12, COLORED);
 			epd.SetFrameMemory(paint.GetImage(), 100, 230, paint.GetWidth(), paint.GetHeight());
