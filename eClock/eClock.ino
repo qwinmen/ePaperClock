@@ -49,7 +49,7 @@ void setup()
 		//инициировать часы
 		rtc.writeProtect(false);
 		rtc.halt(false);
-		Time t(2022, 3, 13, 20, 36, 50, Time::kSunday);
+		Time t(2022, 5, 3, 22, 57, 50, Time::kTuesday);
 		rtc.time(t);
 		//запомнить флаг инициации в память
 		bool dataF = true;
@@ -75,8 +75,7 @@ void loop()
 		HEnd(NumericConverter(t.hr%10));
 		DotSplitter();
 		MStart(NumericConverter(t.min/10));
-		int minNumericEnd = t.min%10;
-		MEnd(NumericConverter(minNumericEnd));
+		MEnd(NumericConverter(t.min%10));
 
 		//YYYY-month-day
 		DateYear(t);
