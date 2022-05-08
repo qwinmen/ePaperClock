@@ -1,3 +1,6 @@
+//Независимая от reset память
+#include <EEPROM.h>
+
 // e-Paper lib
 // https://github.com/waveshare/e-Paper
 
@@ -29,7 +32,6 @@ unsigned long time_now_s;
 
 void setup()
 {
-	// put your setup code here, to run once:
 	Serial.begin(9600);
 	if (epd.Init() != 0)
 	{
@@ -37,45 +39,30 @@ void setup()
 		return;
 	}
 
-	Serial.println(epd.Init());
-
-	rtc.writeProtect(false);
-	rtc.halt(false);
-	Time t(2022, 3, 31, 18, 22, 50, Time::kSaturday);
-	rtc.time(t);
-	//epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
-	// epd.DisplayFrame();
-	// epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
-	// epd.DisplayFrame();
-
-	// paint.SetRotate(ROTATE_0);
-	// paint.SetWidth(200);
-	// paint.SetHeight(24);
-
-	// paint.Clear(UNCOLORED);
-	// paint.DrawStringAt(10, 4, "EEEEEEEEEE", &Font24, COLORED);
-	// epd.SetFrameMemory(paint.GetImage(), 0, 10, paint.GetWidth(), paint.GetHeight());
-
-	// epd.DisplayFrame();
-	// delay(3000);
-	//  epd.Sleep();
+	//достать флаг из памяти
+	bool dataReadFromMemory = false;
+	EEPROM.get(true, dataReadFromMemory);
+	pinMode(6, INPUT_PULLUP); //на 6 пин кнопку, влиять на сброс
+	//если флаг не установлен ИЛИ D6 замкнут на землю:
+	if(dataReadFromMemory == false || !digitalRead(6))
+	{
+		//инициировать часы
+		rtc.writeProtect(false);
+		rtc.halt(false);
+		Time t(2022, 5, 3, 22, 57, 50, Time::kTuesday);
+		rtc.time(t);
+		//запомнить флаг инициации в память
+		bool dataF = true;
+		EEPROM.put(true, dataF);
+	}
 }
 
-bool firstLoop = true;
 void loop()
 {
-	/*static uint32_t timer = millis();
-	if(millis() - timer >= 5000){	//каждую секунду
+	static uint32_t timer = millis();
+	if(millis() - timer >= 60000){	//каждую минуту
 		timer = millis();	//обновляем таймер
-		if(ds.readTemp()){
-			//Serial.println(ds.getTemp());
-			Temperature(ds.getTemp());
-		}
-		ds.requestTemp();
-	}
-*/
-	if (firstLoop)
-	{
+
 		epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
 		epd.DisplayFrame();
 		epd.ClearFrameMemory(0xFF); // bit set = white, bit reset = black
@@ -95,18 +82,15 @@ void loop()
 
 		//dayOf
 		DayOf(dayAsString(t.day));
-		
+
 		if(ds.readTemp()){
 			Temperature(ds.getTemp());
 		}
+		
+		ds.requestTemp();
 
 		epd.DisplayFrame(); //экран
-
-		firstLoop = false;
 	}
-
-	delay(3000);
-	Serial.println("e-Paper loop");
 }
 
 ///Конвертирует цифру в символ. Это костыль, из-за несоответствия в font72.cpp
@@ -225,12 +209,12 @@ void Temperature(int currentValue){
 String dayAsString(const Time::Day day) {
   switch (day) {
     case Time::kSunday: return "BC";
-    case Time::kMonday: return "MH";//ПН
+    case Time::kMonday: return "5H";//ПН
     case Time::kTuesday: return "BT";
     case Time::kWednesday: return "CP";
     case Time::kThursday: return "4T";//ЧТ
-    case Time::kFriday: return "MT";//ПТ
-    case Time::kSaturday: return "Cb";//СБ
+    case Time::kFriday: return "5T";//ПТ
+    case Time::kSaturday: return "C6";//СБ
   }
   return "(unknown day)";
 }
